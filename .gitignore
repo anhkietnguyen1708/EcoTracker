@@ -1,0 +1,10 @@
+# Rác của máy Mac
+.DS_Store
+
+# Thư mục ảnh và cài đặt của app
+upload_cache/
+eco_settings.json
+
+# Rác của Python
+__pycache__/
+*.pyc
