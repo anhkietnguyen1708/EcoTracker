@@ -260,6 +260,137 @@ KV = '''
                 bold: True
         Widget:
 
+# ==========================================
+# CÁC COMPONENT MỚI CHO ROADMAP TIẾN TRÌNH (Bản nâng cấp 10 cột mốc)
+# ==========================================
+<RoadmapNode@BoxLayout>:
+    orientation: "vertical"
+    size_hint: None, None
+    size: "70dp", "90dp"
+    spacing: "4dp"
+    node_name: ""
+    node_points: ""
+    node_icon: "leaf"
+    is_unlocked: False
+    
+    AnchorLayout:
+        anchor_x: "center"
+        anchor_y: "center"
+        size_hint_y: None
+        height: "40dp"
+        Widget:
+            size_hint: None, None
+            size: "34dp", "36dp"
+            canvas.before:
+                Color:
+                    rgba: (0.18, 0.49, 0.2, 1) if root.is_unlocked else (0.6, 0.6, 0.6, 0.4)
+                Line:
+                    circle: (self.center_x, self.center_y, 16)
+                    width: 2
+                Color:
+                    rgba: (0.82, 0.88, 0.82, 1) if root.is_unlocked else (0.3, 0.3, 0.3, 0.1)
+                Ellipse:
+                    pos: self.center_x - 15, self.center_y - 15
+                    size: 30, 30
+        MDIcon:
+            icon: root.node_icon
+            halign: "center"
+            valign: "center"
+            font_size: "18sp"
+            theme_text_color: "Custom"
+            text_color: (0.18, 0.49, 0.2, 1) if root.is_unlocked else (0.6, 0.6, 0.6, 0.5)
+    MDLabel:
+        text: root.node_name
+        halign: "center"
+        font_style: "Caption"
+        font_size: "8sp"
+        bold: True
+        theme_text_color: "Primary" if root.is_unlocked else "Hint"
+    MDLabel:
+        text: f"{root.node_points} XP"
+        halign: "center"
+        font_style: "Caption"
+        font_size: "8sp"
+        theme_text_color: "Hint"
+
+<TimelineConnector@Widget>:
+    size_hint: None, None
+    size: "30dp", "3dp"
+    pos_hint: {"center_y": .73}
+    progress_val: 0.0
+    canvas.before:
+        # Đường nền màu xám
+        Color:
+            rgba: (0.6, 0.6, 0.6, 0.3)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+        # Đường màu xanh chạy đè lên theo tỷ lệ tiến trình
+        Color:
+            rgba: (0.18, 0.49, 0.2, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.width * root.progress_val, self.height
+
+<RoadmapCard@MDCard>:
+    orientation: "vertical"
+    padding: "15dp"
+    spacing: "5dp"
+    radius: [15]
+    elevation: 0
+    md_bg_color: (0.89, 0.92, 0.88, 1) if app.theme_cls.theme_style == "Light" else (0.15, 0.15, 0.15, 1)
+    size_hint_y: None
+    height: "170dp"
+    BoxLayout:
+        orientation: "horizontal"
+        size_hint_y: None
+        height: "35dp"
+        BoxLayout:
+            orientation: "vertical"
+            spacing: "2dp"
+            MDLabel:
+                text: "Your Eco Journey"
+                bold: True
+                font_style: "Subtitle1"
+            MDLabel:
+                text: "LEVEL ROADMAP"
+                font_style: "Caption"
+                theme_text_color: "Hint"
+                font_size: "9sp"
+        AnchorLayout:
+            anchor_x: "right"
+            anchor_y: "center"
+            MDCard:
+                size_hint: None, None
+                size: "105dp", "26dp"
+                radius: [13]
+                md_bg_color: (0.82, 0.88, 0.82, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.3, 0.2, 1)
+                padding: ["5dp", "2dp", "5dp", "2dp"]
+                elevation: 0
+                MDLabel:
+                    text: f"{app.user_points} XP all-time"
+                    halign: "center"
+                    valign: "center"
+                    bold: True
+                    font_style: "Caption"
+                    font_size: "10sp"
+                    theme_text_color: "Custom"
+                    text_color: (0.18, 0.49, 0.2, 1) if app.theme_cls.theme_style == "Light" else (0.8, 0.9, 0.8, 1)
+    ScrollView:
+        do_scroll_y: False
+        do_scroll_x: True
+        size_hint_y: None
+        height: "100dp"
+        BoxLayout:
+            id: roadmap_timeline
+            orientation: "horizontal"
+            size_hint_x: None
+            width: self.minimum_width
+            spacing: "2dp"
+            padding: ["2dp", "5dp", "2dp", "2dp"]
+
+# ==========================================
+
 <TrophyItem@MDCard>:
     orientation: "vertical"
     unlocked: False
@@ -1058,6 +1189,65 @@ ScreenManager:
                                                     font_style: "Caption"
                                                     font_size: "10sp"
 
+                                        # ROADMAP CARD SẼ ĐƯỢC CHÈN VÀO ĐÂY QUA PYTHON
+                                        # -- ROADMAP HIỂN THỊ TRỰC TIẾP --
+                                        MDCard:
+                                            orientation: "vertical"
+                                            padding: "15dp"
+                                            spacing: "5dp"
+                                            radius: [15]
+                                            elevation: 0
+                                            md_bg_color: (0.89, 0.92, 0.88, 1) if app.theme_cls.theme_style == "Light" else (0.15, 0.15, 0.15, 1)
+                                            size_hint_y: None
+                                            height: "170dp"
+                                            BoxLayout:
+                                                orientation: "horizontal"
+                                                size_hint_y: None
+                                                height: "35dp"
+                                                BoxLayout:
+                                                    orientation: "vertical"
+                                                    spacing: "2dp"
+                                                    MDLabel:
+                                                        text: "Your Eco Journey"
+                                                        bold: True
+                                                        font_style: "Subtitle1"
+                                                    MDLabel:
+                                                        text: "LEVEL ROADMAP"
+                                                        font_style: "Caption"
+                                                        theme_text_color: "Hint"
+                                                        font_size: "9sp"
+                                                AnchorLayout:
+                                                    anchor_x: "right"
+                                                    anchor_y: "center"
+                                                    MDCard:
+                                                        size_hint: None, None
+                                                        size: "105dp", "26dp"
+                                                        radius: [13]
+                                                        md_bg_color: (0.82, 0.88, 0.82, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.3, 0.2, 1)
+                                                        padding: ["5dp", "2dp", "5dp", "2dp"]
+                                                        elevation: 0
+                                                        MDLabel:
+                                                            text: f"{app.user_points} XP all-time"
+                                                            halign: "center"
+                                                            valign: "center"
+                                                            bold: True
+                                                            font_style: "Caption"
+                                                            font_size: "10sp"
+                                                            theme_text_color: "Custom"
+                                                            text_color: (0.18, 0.49, 0.2, 1) if app.theme_cls.theme_style == "Light" else (0.8, 0.9, 0.8, 1)
+                                            ScrollView:
+                                                do_scroll_y: False
+                                                do_scroll_x: True
+                                                size_hint_y: None
+                                                height: "100dp"
+                                                BoxLayout:
+                                                    id: roadmap_timeline
+                                                    orientation: "horizontal"
+                                                    size_hint_x: None
+                                                    width: self.minimum_width
+                                                    spacing: "2dp"
+                                                    padding: ["2dp", "5dp", "2dp", "2dp"]
+
                                         MDLabel:
                                             text: "Monthly Challenges"
                                             bold: True
@@ -1700,9 +1890,11 @@ class EcoTrackerApp(MDApp):
     SERVER_URL = "http://13.212.xx.xx:8000" 
 
     current_photo_path = ""
-    user_points = 2840
+    
+    # ĐỂ TỰ ĐỘNG CẬP NHẬT GIAO DIỆN KHI ĐIỂM SỐ THAY ĐỔI
+    user_points = NumericProperty(2840)
+    user_streak = NumericProperty(12)
 
-    user_streak = 12
     uploaded_hashes = []
     current_hash = ""
 
@@ -1713,6 +1905,7 @@ class EcoTrackerApp(MDApp):
     daily_tasks = []          # list of dicts: {title, desc, icon, completed}
     current_task_index = None  # index of task đang được upload, None = upload thường
 
+    # ĐỊNH NGHĨA CÁC MỐC ĐIỂM VÀ TÊN HUY HIỆU (Đã đồng bộ tuyệt đối)
     trophy_thresholds = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000]
     trophy_icons = ["seed", "water", "leaf", "fire", "bike", "recycle", "earth", "star", "tree", "crown"]
     trophy_names = ["Seedling", "Water Guardian", "Carbon Cutter", "Streak Master", "Green Commuter", "Zero Waste", "Earth Hero", "Star Eco", "Tree Planter", "Eco Crown"]
@@ -1741,8 +1934,65 @@ class EcoTrackerApp(MDApp):
 
     def on_start(self):
         self.update_trophy_case()
+        self.update_roadmap_ui()  # Vẽ thanh tiến trình Roadmap
         self.check_eco_path_milestones()
         self.generate_daily_tasks()
+
+    # =========================================================
+    # HÀM VẼ TIẾN TRÌNH LEVEL ROADMAP DỌC/NGANG (Tự động co giãn)
+    # =========================================================
+    def update_roadmap_ui(self):
+        try:
+            timeline = self.root.ids.roadmap_timeline
+        except Exception:
+            return
+            
+        timeline.clear_widgets()
+        
+        # Tạo thêm 1 mốc khởi đầu "Beginner" tương ứng với 0 XP (luôn mở khóa)
+        milestones_thresholds = [0] + self.trophy_thresholds
+        milestones_names = ["Beginner"] + self.trophy_names
+        milestones_icons = ["account-outline"] + self.trophy_icons
+        
+        num_milestones = len(milestones_thresholds)
+        
+        for i in range(num_milestones):
+            name = milestones_names[i]
+            threshold = milestones_thresholds[i]
+            icon = milestones_icons[i]
+            
+            # Kiểm tra xem user hiện tại đã mở khóa mốc này chưa
+            is_unlocked = self.user_points >= threshold
+            
+            # Thêm Node mốc tiến trình
+            node = Builder.load_string(f'''
+RoadmapNode:
+    node_name: "{name}"
+    node_points: "{threshold}"
+    node_icon: "{icon}"
+    is_unlocked: {is_unlocked}
+''')
+            timeline.add_widget(node)
+            
+            # Nếu chưa phải mốc cuối cùng, thêm đường nối giữa 2 Node
+            if i < num_milestones - 1:
+                curr_thresh = milestones_thresholds[i]
+                next_thresh = milestones_thresholds[i + 1]
+                
+                # Tính toán tỷ lệ phần trăm lấp đầy thanh nối theo điểm số thực tế
+                if self.user_points >= next_thresh:
+                    progress_val = 1.0
+                elif self.user_points < curr_thresh:
+                    progress_val = 0.0
+                else:
+                    # Tính tỷ lệ nằm giữa 2 mốc điểm
+                    progress_val = (self.user_points - curr_thresh) / (next_thresh - curr_thresh)
+                
+                connector = Builder.load_string(f'''
+TimelineConnector:
+    progress_val: {progress_val}
+''')
+                timeline.add_widget(connector)
 
     # =========================================================
     # DAILY TASKS
@@ -1781,24 +2031,21 @@ DailyTaskItem:
     title: "{task['title']}"
     desc: "{task['desc']}"
     completed: {task['completed']}
-    # Nếu đã completed thì disable (không cho bấm), nếu chưa thì cho bấm
     on_release: app.open_task_upload({idx}) if not {task['completed']} else None
 ''')
             box.add_widget(item)
             
-        # Cập nhật con số 1/3, 2/3 hoàn thành lên giao diện
         try:
             self.root.ids.daily_tasks_progress_label.text = f"{done_count}/{len(self.daily_tasks)} hoàn thành"
         except Exception:
             pass
 
     def open_task_upload(self, task_index):
-        """Bấm vào 1 task -> mở trang Upload Photo để hoàn thành task đó."""
         if task_index is None or task_index >= len(self.daily_tasks):
             return
         task = self.daily_tasks[task_index]
         if task["completed"]:
-            return  # đã hoàn thành thì không cho làm lại
+            return
 
         self.current_task_index = task_index
         self.clear_current_image()
@@ -1977,20 +2224,17 @@ TrophyItem:
 
             except Exception as e:
                 print(f"Lỗi kết nối AWS: {e}")
-                # Nếu lỗi mạng, có thể dùng dữ liệu tạm hoặc thông báo cho user
                 self.user_points = 0
 
-            # Cập nhật giao diện
             self.root.ids.username_display.text = user
             self.root.ids.profile_name_label.text = user
             self.root.current = "main_app_screen"
             
-            # Chuyển tab và vẽ lại mọi thứ
             self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
             
-            # QUAN TRỌNG: Gọi update_daily_tasks_ui để hiện 1/3, 2/3 ngay khi vừa vào
             self.update_daily_tasks_ui()
             self.update_trophy_case()
+            self.update_roadmap_ui() # Cập nhật giao diện hành trình sau khi login
             self.check_eco_path_milestones()
 
     def process_logout(self):
@@ -2039,7 +2283,7 @@ TrophyItem:
         try:
             img = cv2.imread(output_path)
             if img is not None:
-                fixed_img = cv2.rotate(img, cv2.ROTATE_45_CLOCKWISE)
+                fixed_img = cv2.rotate(img, cv2.ROTATE_45_CLOCKWISE) # Sửa góc quay 90 độ cho Mac dọc
                 cv2.imwrite(output_path, fixed_img)
         except Exception:
             pass
@@ -2120,52 +2364,56 @@ TrophyItem:
             self.root.ids.status_label.text = "Bạn chưa chụp/chọn ảnh!"
             return
 
-        # 2. Địa chỉ API mà người kia cung cấp
-        # Lưu ý: Thay IP đúng của VH vào đây
+        # 2. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (Dù có hay không có mạng)
+        if self.current_task_index is not None:
+            # Khóa nhiệm vụ và đổi màu
+            self.daily_tasks[self.current_task_index]["completed"] = True
+            self.update_daily_tasks_ui()
+            
+            # Cộng điểm local ngay lập tức
+            self.user_points += 100
+            
+            # Vẽ lại Roadmap và Trophy Case
+            self.update_trophy_case()
+            self.update_roadmap_ui()
+            self.check_eco_path_milestones()
+
+        # 3. GỌI API ĐỂ ĐỒNG BỘ LÊN AWS S3
+        username = self.root.ids.login_user.text
+        task_id = self.current_task_index 
         API_ENDPOINT = f"{self.SERVER_URL}/upload_task" 
 
         try:
-            # 3. Mở file ảnh từ ổ cứng máy Mac
-            with open(self.current_photo_path, 'rb') as image_file:
-                
-                # 4. Chuẩn bị "Gói hàng" gửi đi
-                # 'file' là từ khóa mà Server của VH yêu cầu
+            with open(self.current_photo_path, "rb") as image_file:
                 files = {
                     'file': (os.path.basename(self.current_photo_path), image_file, 'image/png')
                 }
-                
-                # Các thông tin đi kèm (Tên user, ID nhiệm vụ)
                 data = {
-                    "username": self.root.ids.login_user.text,
-                    "task_id": str(self.current_task_index)
+                    "username": username,
+                    "task_id": str(task_id)
                 }
 
-                # 5. THỰC HIỆN CALL API (Đẩy hàng lên AWS)
-                response = requests.post(API_ENDPOINT, data=data, files=files, timeout=30)
+                # Set timeout ngắn lại (5s) để app không bị đơ nếu server sập
+                response = requests.post(API_ENDPOINT, data=data, files=files, timeout=5)
 
-                # 6. Đọc kết quả từ Server trả về
                 if response.status_code == 200:
                     ket_qua = response.json()
-                    # Server sẽ trả về link ảnh S3 sau khi upload xong
                     link_anh_s3 = ket_qua.get("image_url")
                     print(f"Ảnh đã lên S3 thành công: {link_anh_s3}")
-                    
-                    # Đánh dấu nhiệm vụ đã xong trên giao diện
-                    if self.current_task_index is not None:
-                        self.daily_tasks[self.current_task_index]["completed"] = True
-                        self.update_daily_tasks_ui()
-                    
                     self.root.ids.status_label.text = "Đã đồng bộ ảnh lên S3 Cloud!"
                 else:
-                    self.root.ids.status_label.text = f"Server báo lỗi: {response.status_code}"
+                    # AWS lỗi nhưng app vẫn lưu điểm local
+                    self.root.ids.status_label.text = f"Đã lưu Local (AWS Lỗi: {response.status_code})"
 
         except Exception as e:
             print(f"Lỗi Call API: {e}")
-            self.root.ids.status_label.text = "Mất kết nối với Server AWS!"
+            # Nếu mất mạng, báo lưu local
+            self.root.ids.status_label.text = "Đã lưu (Chưa kết nối Cloud)"
 
-        # Đổi màu thông báo và quay về Dashboard
+        # 4. Đổi màu thông báo và quay về Dashboard
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
+        self.root.ids.btn_confirm.disabled = True
         Clock.schedule_once(lambda dt: self.go_to_dashboard(), 2.0)
 
     def go_to_dashboard(self):
