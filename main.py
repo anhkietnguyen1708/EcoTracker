@@ -4,6 +4,8 @@ import time
 import shutil
 import hashlib
 import random
+
+import requests
 from PIL import Image as PILImage
 from kivy.config import Config
 from kivy.utils import platform
@@ -1694,8 +1696,12 @@ ScreenManager:
 
 
 class EcoTrackerApp(MDApp):
+
+    SERVER_URL = "http://13.212.xx.xx:8000" 
+
     current_photo_path = ""
     user_points = 2840
+
     user_streak = 12
     uploaded_hashes = []
     current_hash = ""
@@ -1759,11 +1765,15 @@ class EcoTrackerApp(MDApp):
             box = self.root.ids.daily_tasks_box
         except Exception:
             return
+            
         box.clear_widgets()
         done_count = 0
+        
         for idx, task in enumerate(self.daily_tasks):
             if task["completed"]:
                 done_count += 1
+            
+            # Tạo widget cho từng nhiệm vụ
             item = Builder.load_string(f'''
 DailyTaskItem:
     task_index: {idx}
@@ -1771,8 +1781,12 @@ DailyTaskItem:
     title: "{task['title']}"
     desc: "{task['desc']}"
     completed: {task['completed']}
+    # Nếu đã completed thì disable (không cho bấm), nếu chưa thì cho bấm
+    on_release: app.open_task_upload({idx}) if not {task['completed']} else None
 ''')
             box.add_widget(item)
+            
+        # Cập nhật con số 1/3, 2/3 hoàn thành lên giao diện
         try:
             self.root.ids.daily_tasks_progress_label.text = f"{done_count}/{len(self.daily_tasks)} hoàn thành"
         except Exception:
@@ -1937,10 +1951,24 @@ TrophyItem:
     def process_login(self):
         user = self.root.ids.login_user.text
         if user.strip() != "":
+            # GỌI AWS ĐỂ LẤY ĐIỂM THẬT
+            try:
+                response = requests.get(f"{self.SERVER_URL}/get_user/{user}")
+                if response.status_code == 200:
+                    data = response.json()
+                    self.user_points = data.get('points', 0)
+                    self.user_streak = data.get('streak', 0)
+                else:
+                    self.user_points = 0 # User mới
+            except Exception as e:
+                print(f"Lỗi kết nối AWS: {e}")
+                self.user_points = 0
+
             self.root.ids.username_display.text = user
             self.root.ids.profile_name_label.text = user
             self.root.current = "main_app_screen"
             self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
+            self.on_start() # Cập nhật lại giao diện với điểm mới
 
     def process_logout(self):
         self.root.current = "login_screen"
@@ -1988,7 +2016,7 @@ TrophyItem:
         try:
             img = cv2.imread(output_path)
             if img is not None:
-                fixed_img = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+                fixed_img = cv2.rotate(img, cv2.ROTATE_45_CLOCKWISE)
                 cv2.imwrite(output_path, fixed_img)
         except Exception:
             pass
@@ -2064,26 +2092,38 @@ TrophyItem:
             pass
 
     def confirm_upload(self):
-        if self.current_hash:
-            self.uploaded_hashes.append(self.current_hash)
-
         if not self.current_photo_path:
             return
 
-        # Nếu đang upload để hoàn thành 1 daily task -> đánh dấu hoàn thành, KHÔNG cộng điểm
-        if self.current_task_index is not None and self.current_task_index < len(self.daily_tasks):
+        # Nếu đang thực hiện nhiệm vụ hàng ngày
+        if self.current_task_index is not None:
+            # 1. Đánh dấu hoàn thành trong dữ liệu
             self.daily_tasks[self.current_task_index]["completed"] = True
+            
+            # 2. Cập nhật giao diện ngay lập tức (để hiện 1/3 và đổi màu nút)
             self.update_daily_tasks_ui()
-            self.root.ids.status_label.text = "Đã hoàn thành nhiệm vụ! (không tính điểm)"
+            
+            # 3. Gửi dữ liệu lên AWS cho VH (nếu đã có IP)
+            try:
+                payload = {
+                    "username": self.root.ids.login_user.text,
+                    "task_id": self.current_task_index,
+                    "status": "completed"
+                }
+                # requests.post(f"{self.SERVER_URL}/update_task", json=payload)
+            except:
+                pass
+                
+            self.root.ids.status_label.text = "Nhiệm vụ đã được ghi nhận!"
         else:
-            self.root.ids.status_label.text = "Ảnh đã được tải lên thành công!"
+            self.root.ids.status_label.text = "Đã tải ảnh lên thành công!"
 
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
         self.root.ids.btn_confirm.disabled = True
-
-        # Chờ 2.5s sau đó quay lại trang Dashboard
-        Clock.schedule_once(lambda dt: self.go_to_dashboard(), 2.5)
+        
+        # Quay về Dashboard sau 2 giây
+        Clock.schedule_once(lambda dt: self.go_to_dashboard(), 2.0)
 
     def go_to_dashboard(self):
         self.current_task_index = None
