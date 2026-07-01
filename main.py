@@ -1951,24 +1951,47 @@ TrophyItem:
     def process_login(self):
         user = self.root.ids.login_user.text
         if user.strip() != "":
-            # GỌI AWS ĐỂ LẤY ĐIỂM THẬT
+            # GỌI AWS ĐỂ LẤY DỮ LIỆU TỔNG THỂ
             try:
                 response = requests.get(f"{self.SERVER_URL}/get_user/{user}")
                 if response.status_code == 200:
                     data = response.json()
+                    
+                    # 1. Lấy điểm và streak (Bạn đã có)
                     self.user_points = data.get('points', 0)
                     self.user_streak = data.get('streak', 0)
+                    
+                    # 2. MỚI: Lấy trạng thái nhiệm vụ từ Cloud (Khớp với RDS của VH)
+                    # Giả sử VH trả về danh sách nhiệm vụ trong biến 'daily_tasks'
+                    cloud_tasks = data.get('daily_tasks', [])
+                    if cloud_tasks:
+                        self.daily_tasks = cloud_tasks
+                    
+                    print("Đã đồng bộ dữ liệu từ Cloud thành công!")
                 else:
-                    self.user_points = 0 # User mới
+                    # Nếu là User mới hoàn toàn
+                    self.user_points = 0
+                    self.user_streak = 0
+                    # Tự tạo nhiệm vụ mới nếu server chưa có
+                    self.generate_daily_tasks() 
+
             except Exception as e:
                 print(f"Lỗi kết nối AWS: {e}")
+                # Nếu lỗi mạng, có thể dùng dữ liệu tạm hoặc thông báo cho user
                 self.user_points = 0
 
+            # Cập nhật giao diện
             self.root.ids.username_display.text = user
             self.root.ids.profile_name_label.text = user
             self.root.current = "main_app_screen"
+            
+            # Chuyển tab và vẽ lại mọi thứ
             self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
-            self.on_start() # Cập nhật lại giao diện với điểm mới
+            
+            # QUAN TRỌNG: Gọi update_daily_tasks_ui để hiện 1/3, 2/3 ngay khi vừa vào
+            self.update_daily_tasks_ui()
+            self.update_trophy_case()
+            self.check_eco_path_milestones()
 
     def process_logout(self):
         self.root.current = "login_screen"
@@ -2092,37 +2115,57 @@ TrophyItem:
             pass
 
     def confirm_upload(self):
+        # 1. Kiểm tra xem đã có ảnh trong máy chưa
         if not self.current_photo_path:
+            self.root.ids.status_label.text = "Bạn chưa chụp/chọn ảnh!"
             return
 
-        # Nếu đang thực hiện nhiệm vụ hàng ngày
-        if self.current_task_index is not None:
-            # 1. Đánh dấu hoàn thành trong dữ liệu
-            self.daily_tasks[self.current_task_index]["completed"] = True
-            
-            # 2. Cập nhật giao diện ngay lập tức (để hiện 1/3 và đổi màu nút)
-            self.update_daily_tasks_ui()
-            
-            # 3. Gửi dữ liệu lên AWS cho VH (nếu đã có IP)
-            try:
-                payload = {
-                    "username": self.root.ids.login_user.text,
-                    "task_id": self.current_task_index,
-                    "status": "completed"
-                }
-                # requests.post(f"{self.SERVER_URL}/update_task", json=payload)
-            except:
-                pass
-                
-            self.root.ids.status_label.text = "Nhiệm vụ đã được ghi nhận!"
-        else:
-            self.root.ids.status_label.text = "Đã tải ảnh lên thành công!"
+        # 2. Địa chỉ API mà người kia cung cấp
+        # Lưu ý: Thay IP đúng của VH vào đây
+        API_ENDPOINT = f"{self.SERVER_URL}/upload_task" 
 
+        try:
+            # 3. Mở file ảnh từ ổ cứng máy Mac
+            with open(self.current_photo_path, 'rb') as image_file:
+                
+                # 4. Chuẩn bị "Gói hàng" gửi đi
+                # 'file' là từ khóa mà Server của VH yêu cầu
+                files = {
+                    'file': (os.path.basename(self.current_photo_path), image_file, 'image/png')
+                }
+                
+                # Các thông tin đi kèm (Tên user, ID nhiệm vụ)
+                data = {
+                    "username": self.root.ids.login_user.text,
+                    "task_id": str(self.current_task_index)
+                }
+
+                # 5. THỰC HIỆN CALL API (Đẩy hàng lên AWS)
+                response = requests.post(API_ENDPOINT, data=data, files=files, timeout=30)
+
+                # 6. Đọc kết quả từ Server trả về
+                if response.status_code == 200:
+                    ket_qua = response.json()
+                    # Server sẽ trả về link ảnh S3 sau khi upload xong
+                    link_anh_s3 = ket_qua.get("image_url")
+                    print(f"Ảnh đã lên S3 thành công: {link_anh_s3}")
+                    
+                    # Đánh dấu nhiệm vụ đã xong trên giao diện
+                    if self.current_task_index is not None:
+                        self.daily_tasks[self.current_task_index]["completed"] = True
+                        self.update_daily_tasks_ui()
+                    
+                    self.root.ids.status_label.text = "Đã đồng bộ ảnh lên S3 Cloud!"
+                else:
+                    self.root.ids.status_label.text = f"Server báo lỗi: {response.status_code}"
+
+        except Exception as e:
+            print(f"Lỗi Call API: {e}")
+            self.root.ids.status_label.text = "Mất kết nối với Server AWS!"
+
+        # Đổi màu thông báo và quay về Dashboard
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
-        self.root.ids.btn_confirm.disabled = True
-        
-        # Quay về Dashboard sau 2 giây
         Clock.schedule_once(lambda dt: self.go_to_dashboard(), 2.0)
 
     def go_to_dashboard(self):
