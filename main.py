@@ -2090,6 +2090,5 @@ TrophyItem:
         self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
         self.clear_current_image()
 
-
 if __name__ == "__main__":
     EcoTrackerApp().run()
