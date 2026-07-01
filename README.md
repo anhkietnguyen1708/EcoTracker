@@ -1,4 +1,4 @@
-# 🌿 Eco Tracker — Eco Space
+# 🌿 Eco Tracker 
 
 Ứng dụng di động giúp người dùng theo dõi và xây dựng lối sống xanh hằng ngày, được xây dựng bằng **Python + Kivy/KivyMD**.
 
