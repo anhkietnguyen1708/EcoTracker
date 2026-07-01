@@ -5,7 +5,9 @@ import shutil
 import hashlib
 import random
 
+# IMPORT THƯ VIỆN GỌI API AWS
 import requests
+
 from PIL import Image as PILImage
 from kivy.config import Config
 from kivy.utils import platform
@@ -332,65 +334,7 @@ KV = '''
             pos: self.pos
             size: self.width * root.progress_val, self.height
 
-<RoadmapCard@MDCard>:
-    orientation: "vertical"
-    padding: "15dp"
-    spacing: "5dp"
-    radius: [15]
-    elevation: 0
-    md_bg_color: (0.89, 0.92, 0.88, 1) if app.theme_cls.theme_style == "Light" else (0.15, 0.15, 0.15, 1)
-    size_hint_y: None
-    height: "170dp"
-    BoxLayout:
-        orientation: "horizontal"
-        size_hint_y: None
-        height: "35dp"
-        BoxLayout:
-            orientation: "vertical"
-            spacing: "2dp"
-            MDLabel:
-                text: "Your Eco Journey"
-                bold: True
-                font_style: "Subtitle1"
-            MDLabel:
-                text: "LEVEL ROADMAP"
-                font_style: "Caption"
-                theme_text_color: "Hint"
-                font_size: "9sp"
-        AnchorLayout:
-            anchor_x: "right"
-            anchor_y: "center"
-            MDCard:
-                size_hint: None, None
-                size: "105dp", "26dp"
-                radius: [13]
-                md_bg_color: (0.82, 0.88, 0.82, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.3, 0.2, 1)
-                padding: ["5dp", "2dp", "5dp", "2dp"]
-                elevation: 0
-                MDLabel:
-                    text: f"{app.user_points} XP all-time"
-                    halign: "center"
-                    valign: "center"
-                    bold: True
-                    font_style: "Caption"
-                    font_size: "10sp"
-                    theme_text_color: "Custom"
-                    text_color: (0.18, 0.49, 0.2, 1) if app.theme_cls.theme_style == "Light" else (0.8, 0.9, 0.8, 1)
-    ScrollView:
-        do_scroll_y: False
-        do_scroll_x: True
-        size_hint_y: None
-        height: "100dp"
-        BoxLayout:
-            id: roadmap_timeline
-            orientation: "horizontal"
-            size_hint_x: None
-            width: self.minimum_width
-            spacing: "2dp"
-            padding: ["2dp", "5dp", "2dp", "2dp"]
-
 # ==========================================
-
 <TrophyItem@MDCard>:
     orientation: "vertical"
     unlocked: False
@@ -922,7 +866,7 @@ ScreenManager:
                                                         halign: "center"
                                                         theme_text_color: "Hint"
 
-                                        # ---- DAILY TASKS (random 3 task / ngày) ----
+                                        # ---- DAILY TASKS (random 3 task / ngày) & NÚT NHẬN THƯỞNG ----
                                         MDCard:
                                             radius: [15]
                                             size_hint_y: None
@@ -952,6 +896,19 @@ ScreenManager:
                                                 spacing: "8dp"
                                                 size_hint_y: None
                                                 height: self.minimum_height
+                                            
+                                            # NÚT NHẬN THƯỞNG 200 XP (Ẩn đi theo mặc định)
+                                            MDFillRoundFlatButton:
+                                                id: claim_bonus_btn
+                                                text: "🎉 NHẬN 200 XP THƯỞNG"
+                                                font_size: "12sp"
+                                                pos_hint: {"center_x": .5}
+                                                md_bg_color: 0.9, 0.5, 0.1, 1
+                                                opacity: 0
+                                                disabled: True
+                                                size_hint_y: None
+                                                height: "0dp"
+                                                on_release: app.claim_daily_bonus()
 
                                         # Biểu đồ dọc trên Mobile
                                         BoxLayout:
@@ -1189,7 +1146,6 @@ ScreenManager:
                                                     font_style: "Caption"
                                                     font_size: "10sp"
 
-                                        # ROADMAP CARD SẼ ĐƯỢC CHÈN VÀO ĐÂY QUA PYTHON
                                         # -- ROADMAP HIỂN THỊ TRỰC TIẾP --
                                         MDCard:
                                             orientation: "vertical"
@@ -1887,13 +1843,15 @@ ScreenManager:
 
 class EcoTrackerApp(MDApp):
 
+    # -- THÔNG TIN AWS --
     SERVER_URL = "http://13.212.xx.xx:8000" 
 
     current_photo_path = ""
     
-    # ĐỂ TỰ ĐỘNG CẬP NHẬT GIAO DIỆN KHI ĐIỂM SỐ THAY ĐỔI
+    # -- THUỘC TÍNH ĐỘNG --
     user_points = NumericProperty(2840)
     user_streak = NumericProperty(12)
+    bonus_claimed = BooleanProperty(False) # Track nút nhận 200XP
 
     uploaded_hashes = []
     current_hash = ""
@@ -1905,7 +1863,7 @@ class EcoTrackerApp(MDApp):
     daily_tasks = []          # list of dicts: {title, desc, icon, completed}
     current_task_index = None  # index of task đang được upload, None = upload thường
 
-    # ĐỊNH NGHĨA CÁC MỐC ĐIỂM VÀ TÊN HUY HIỆU (Đã đồng bộ tuyệt đối)
+    # ĐỊNH NGHĨA CÁC MỐC ĐIỂM VÀ TÊN HUY HIỆU (Đã đồng bộ)
     trophy_thresholds = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000]
     trophy_icons = ["seed", "water", "leaf", "fire", "bike", "recycle", "earth", "star", "tree", "crown"]
     trophy_names = ["Seedling", "Water Guardian", "Carbon Cutter", "Streak Master", "Green Commuter", "Zero Waste", "Earth Hero", "Star Eco", "Tree Planter", "Eco Crown"]
@@ -1934,7 +1892,7 @@ class EcoTrackerApp(MDApp):
 
     def on_start(self):
         self.update_trophy_case()
-        self.update_roadmap_ui()  # Vẽ thanh tiến trình Roadmap
+        self.update_roadmap_ui()
         self.check_eco_path_milestones()
         self.generate_daily_tasks()
 
@@ -1995,10 +1953,11 @@ TimelineConnector:
                 timeline.add_widget(connector)
 
     # =========================================================
-    # DAILY TASKS
+    # DAILY TASKS & BONUS
     # =========================================================
     def generate_daily_tasks(self):
         """Lấy random 3 task từ danh sách tổng cho ngày hôm nay."""
+        self.bonus_claimed = False # Reset trạng thái nhận thưởng khi có task mới
         picked = random.sample(DAILY_TASKS_POOL, k=min(3, len(DAILY_TASKS_POOL)))
         self.daily_tasks = []
         for t in picked:
@@ -2023,7 +1982,7 @@ TimelineConnector:
             if task["completed"]:
                 done_count += 1
             
-            # Tạo widget cho từng nhiệm vụ
+            # Tạo widget cho từng nhiệm vụ (Khóa nút nếu đã completed)
             item = Builder.load_string(f'''
 DailyTaskItem:
     task_index: {idx}
@@ -2035,10 +1994,58 @@ DailyTaskItem:
 ''')
             box.add_widget(item)
             
+        # XỬ LÝ THANH TIẾN ĐỘ VÀ NÚT NHẬN THƯỞNG 200XP
         try:
-            self.root.ids.daily_tasks_progress_label.text = f"{done_count}/{len(self.daily_tasks)} hoàn thành"
+            total_tasks = len(self.daily_tasks)
+            self.root.ids.daily_tasks_progress_label.text = f"{done_count}/{total_tasks} hoàn thành"
+            
+            btn = self.root.ids.claim_bonus_btn
+            if done_count == total_tasks and not self.bonus_claimed:
+                # Đủ 3/3 và chưa nhận -> HIỆN NÚT CAM
+                btn.opacity = 1
+                btn.disabled = False
+                btn.height = "40dp"
+                btn.text = "🎉 NHẬN 200 XP THƯỞNG"
+                btn.md_bg_color = (0.9, 0.5, 0.1, 1)
+            elif done_count == total_tasks and self.bonus_claimed:
+                # Đủ 3/3 và đã nhận -> ĐỔI MÀU XANH, KHÓA NÚT
+                btn.opacity = 1
+                btn.disabled = True
+                btn.height = "40dp"
+                btn.text = "ĐÃ NHẬN THƯỞNG"
+                btn.md_bg_color = (0.4, 0.6, 0.4, 1)
+            else:
+                # Chưa đủ 3/3 -> ẨN NÚT
+                btn.opacity = 0
+                btn.disabled = True
+                btn.height = "0dp"
+                
         except Exception:
             pass
+
+    def claim_daily_bonus(self):
+        """Hàm xử lý khi người dùng bấm nút nhận 200 XP thưởng."""
+        if not self.bonus_claimed:
+            # 1. Cộng điểm
+            self.user_points += 200
+            self.bonus_claimed = True
+            
+            # 2. Cập nhật giao diện
+            self.update_daily_tasks_ui()
+            self.update_trophy_case()
+            self.update_roadmap_ui()
+            self.check_eco_path_milestones()
+            
+            # 3. (Tùy chọn) Gửi số điểm mới lên AWS để lưu
+            try:
+                payload = {
+                    "username": self.root.ids.login_user.text,
+                    "points": self.user_points
+                }
+                # requests.post(f"{self.SERVER_URL}/update_points", json=payload, timeout=5)
+                print("Đã cộng 200XP thưởng vào tổng điểm!")
+            except:
+                pass
 
     def open_task_upload(self, task_index):
         if task_index is None or task_index >= len(self.daily_tasks):
@@ -2198,33 +2205,25 @@ TrophyItem:
     def process_login(self):
         user = self.root.ids.login_user.text
         if user.strip() != "":
-            # GỌI AWS ĐỂ LẤY DỮ LIỆU TỔNG THỂ
             try:
-                response = requests.get(f"{self.SERVER_URL}/get_user/{user}")
+                response = requests.get(f"{self.SERVER_URL}/get_user/{user}", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
-                    
-                    # 1. Lấy điểm và streak (Bạn đã có)
                     self.user_points = data.get('points', 0)
                     self.user_streak = data.get('streak', 0)
                     
-                    # 2. MỚI: Lấy trạng thái nhiệm vụ từ Cloud (Khớp với RDS của VH)
-                    # Giả sử VH trả về danh sách nhiệm vụ trong biến 'daily_tasks'
                     cloud_tasks = data.get('daily_tasks', [])
                     if cloud_tasks:
                         self.daily_tasks = cloud_tasks
-                    
                     print("Đã đồng bộ dữ liệu từ Cloud thành công!")
                 else:
-                    # Nếu là User mới hoàn toàn
                     self.user_points = 0
                     self.user_streak = 0
-                    # Tự tạo nhiệm vụ mới nếu server chưa có
                     self.generate_daily_tasks() 
 
             except Exception as e:
                 print(f"Lỗi kết nối AWS: {e}")
-                self.user_points = 0
+                # Giữ nguyên điểm cũ nếu mất mạng
 
             self.root.ids.username_display.text = user
             self.root.ids.profile_name_label.text = user
@@ -2234,7 +2233,7 @@ TrophyItem:
             
             self.update_daily_tasks_ui()
             self.update_trophy_case()
-            self.update_roadmap_ui() # Cập nhật giao diện hành trình sau khi login
+            self.update_roadmap_ui()
             self.check_eco_path_milestones()
 
     def process_logout(self):
@@ -2283,7 +2282,7 @@ TrophyItem:
         try:
             img = cv2.imread(output_path)
             if img is not None:
-                fixed_img = cv2.rotate(img, cv2.ROTATE_45_CLOCKWISE) # Sửa góc quay 90 độ cho Mac dọc
+                fixed_img = cv2.rotate(img, cv2.ROTATE_45_CLOCKWISE)
                 cv2.imwrite(output_path, fixed_img)
         except Exception:
             pass
@@ -2359,26 +2358,21 @@ TrophyItem:
             pass
 
     def confirm_upload(self):
-        # 1. Kiểm tra xem đã có ảnh trong máy chưa
         if not self.current_photo_path:
             self.root.ids.status_label.text = "Bạn chưa chụp/chọn ảnh!"
             return
 
-        # 2. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC (Dù có hay không có mạng)
+        # 1. CẬP NHẬT GIAO DIỆN LOCAL NGAY LẬP TỨC
         if self.current_task_index is not None:
-            # Khóa nhiệm vụ và đổi màu
             self.daily_tasks[self.current_task_index]["completed"] = True
+            self.user_points += 100  # Cộng 100 XP cho mỗi nhiệm vụ thường
+            
             self.update_daily_tasks_ui()
-            
-            # Cộng điểm local ngay lập tức
-            self.user_points += 100
-            
-            # Vẽ lại Roadmap và Trophy Case
             self.update_trophy_case()
             self.update_roadmap_ui()
             self.check_eco_path_milestones()
 
-        # 3. GỌI API ĐỂ ĐỒNG BỘ LÊN AWS S3
+        # 2. ĐÓNG GÓI VÀ GỬI LÊN AWS S3
         username = self.root.ids.login_user.text
         task_id = self.current_task_index 
         API_ENDPOINT = f"{self.SERVER_URL}/upload_task" 
@@ -2393,7 +2387,7 @@ TrophyItem:
                     "task_id": str(task_id)
                 }
 
-                # Set timeout ngắn lại (5s) để app không bị đơ nếu server sập
+                # Set timeout=5s để tránh đơ app nếu mạng lỗi
                 response = requests.post(API_ENDPOINT, data=data, files=files, timeout=5)
 
                 if response.status_code == 200:
@@ -2402,15 +2396,12 @@ TrophyItem:
                     print(f"Ảnh đã lên S3 thành công: {link_anh_s3}")
                     self.root.ids.status_label.text = "Đã đồng bộ ảnh lên S3 Cloud!"
                 else:
-                    # AWS lỗi nhưng app vẫn lưu điểm local
-                    self.root.ids.status_label.text = f"Đã lưu Local (AWS Lỗi: {response.status_code})"
+                    self.root.ids.status_label.text = f"Đã lưu Local (AWS Lỗi {response.status_code})"
 
         except Exception as e:
             print(f"Lỗi Call API: {e}")
-            # Nếu mất mạng, báo lưu local
             self.root.ids.status_label.text = "Đã lưu (Chưa kết nối Cloud)"
 
-        # 4. Đổi màu thông báo và quay về Dashboard
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
         self.root.ids.btn_confirm.disabled = True
