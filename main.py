@@ -756,7 +756,6 @@ ScreenManager:
                         ScreenManager:
                             id: sm
 
-                            # === 1. DASHBOARD CHÍNH ===
                             Screen:
                                 name: "tab_dashboard"
                                 ScrollView:
@@ -770,8 +769,9 @@ ScreenManager:
                                         MDCard:
                                             radius: [15]
                                             size_hint_y: None
-                                            height: "220dp"
+                                            height: "250dp"   
                                             padding: "15dp"
+                                            spacing: "10dp"   
                                             md_bg_color: (0.89, 0.92, 0.88, 1) if app.theme_cls.theme_style == "Light" else (0.15, 0.15, 0.15, 1)
                                             elevation: 0
                                             orientation: "vertical"
@@ -797,21 +797,25 @@ ScreenManager:
                                             AnchorLayout:
                                                 anchor_x: "center"
                                                 anchor_y: "center"
+                                                size_hint_y: None
+                                                height: "110dp"    
                                                 DonutChart:
                                                     id: donut_chart
                                                     size_hint: None, None
-                                                    size: "100dp", "100dp"
+                                                    size: "110dp", "110dp" 
                                                     value: app.current_eco_score
                                                 BoxLayout:
                                                     orientation: "vertical"
                                                     size_hint: None, None
-                                                    size: "60dp", "60dp"
+                                                    size: "70dp", "55dp"   
+                                                    spacing: "-3dp"        
                                                     MDLabel:
                                                         id: eco_score_label
                                                         text: str(int(app.current_eco_score))
-                                                        font_style: "H5"
+                                                        font_style: "H4"
                                                         bold: True
                                                         halign: "center"
+                                                        valign: "bottom"
                                                         theme_text_color: "Custom"
                                                         text_color: (0, 0, 0, 1) if app.theme_cls.theme_style == "Light" else (1, 1, 1, 1)
                                                     MDLabel:
@@ -819,6 +823,7 @@ ScreenManager:
                                                         font_style: "Caption"
                                                         font_size: "10sp"
                                                         halign: "center"
+                                                        valign: "top"
                                                         theme_text_color: "Hint"
 
                                             BoxLayout:
@@ -1847,9 +1852,6 @@ ScreenManager:
 '''
 
 
-# ==========================================
-# KHỞI TẠO APP
-# ==========================================
 class EcoTrackerApp(MDApp):
 
     # -- THÔNG TIN AWS --
@@ -1860,7 +1862,7 @@ class EcoTrackerApp(MDApp):
     # -- THUỘC TÍNH ĐỘNG --
     user_points = NumericProperty(2840)
     user_streak = NumericProperty(12)
-    current_eco_score = NumericProperty(15)
+    current_eco_score = NumericProperty(84) 
     bonus_claimed = BooleanProperty(False)
 
     uploaded_hashes = []
@@ -2000,6 +2002,7 @@ DailyTaskItem:
         except Exception as e:
             print("Lỗi update_daily_tasks_ui:", e)
 
+    # --- NHIỆM VỤ CHÍNH: CHỈ CỘNG 200 XP TẠI ĐÂY ---
     def claim_daily_bonus(self):
         if not self.bonus_claimed:
             self.user_points += 200
@@ -2163,7 +2166,7 @@ SocialFeedItem:
             print(f"Lỗi hiển thị Feed: {e}")
 
     # =========================================================
-    # CHỨC NĂNG CHỤP ẢNH VÀ UPLOAD ĐÃ SỬA LỖI URL KÝ TỰ ĐẶC BIỆT
+    # CHỨC NĂNG CHỤP ẢNH VÀ UPLOAD
     # =========================================================
     def open_camera_popup(self):
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
@@ -2298,7 +2301,6 @@ SocialFeedItem:
 
         username = self.root.ids.login_user.text
         
-        # SỬA LỖI: Thay thế toàn bộ khoảng trắng trong username thành dấu gạch dưới "_"
         safe_username = username.replace(" ", "_")
         task_id = str(self.current_task_index)
 
@@ -2310,7 +2312,6 @@ SocialFeedItem:
                 region_name=REGION
             )
 
-            # Tên file S3 không còn chứa khoảng trắng
             s3_file_name = f"tasks/{safe_username}_task{task_id}.png"
 
             self.root.ids.status_label.text = "Đang đẩy ảnh lên S3..."
@@ -2323,7 +2324,6 @@ SocialFeedItem:
                 ExtraArgs={'ACL': 'public-read', 'ContentType': 'image/png'} 
             )
 
-            # Link S3 chuẩn không bị lỗi điều khiển kí tự URL
             s3_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_file_name}"
             print(f"==========================================")
             print(f"🎉 THÀNH CÔNG! Đã đẩy lên S3.")
@@ -2335,13 +2335,12 @@ SocialFeedItem:
                 self.daily_tasks[self.current_task_index]["s3_url"] = s3_url
                 task_title = self.daily_tasks[self.current_task_index]["title"]
                 
-                self.user_points += 100
+                # SỬA LỖI: Không cộng điểm lẻ (+100 XP) cho từng nhiệm vụ nữa
                 self.update_daily_tasks_ui()
                 self.update_trophy_case()
                 self.update_roadmap_ui()
                 self.check_eco_path_milestones()
                 
-                # Cập nhật lên Bảng tin Feed
                 self.add_to_social_feed(username, task_title, s3_url)
 
             self.root.ids.status_label.text = "Đã lưu ảnh thẳng lên AWS S3!"
