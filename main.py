@@ -4,14 +4,15 @@ import time
 import shutil
 import hashlib
 import random
-
-# IMPORT THƯ VIỆN GỌI API AWS
+import ssl
 import requests
-
 import boto3
 from botocore.exceptions import NoCredentialsError
-
 from PIL import Image as PILImage
+
+# --- VƯỢT RÀO SSL CHO MÁC MAC ĐỂ HIỆN ẢNH S3 ---
+ssl._create_default_https_context = ssl._create_unverified_context
+
 from kivy.config import Config
 from kivy.utils import platform
 from kivy.core.window import Window
@@ -38,6 +39,7 @@ from kivy.properties import ListProperty, NumericProperty, StringProperty, Boole
 from kivymd.uix.label import MDLabel
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.progressbar import MDProgressBar
+from kivymd.uix.fitimage import FitImage
 
 try:
     import cv2
@@ -161,19 +163,17 @@ class SafeAnchorLayout(AnchorLayout):
 
 
 # ==========================================
-# DANH SÁCH TASK TỔNG (POOL) - mỗi ngày random ra 3 task
+# DANH SÁCH TASK TỔNG (POOL)
 # ==========================================
 DAILY_TASKS_POOL = [
     {"title": "Tái sử dụng túi vải", "desc": "Chụp ảnh bạn dùng túi vải khi đi chợ/siêu thị", "icon": "shopping"},
     {"title": "Phân loại rác", "desc": "Chụp ảnh rác đã được phân loại tại nhà", "icon": "recycle"},
-    {"title": "Tắt thiết bị điện không dùng", "desc": "Chụp ảnh thiết bị điện đã được tắt/rút phích cắm", "icon": "power-plug-off"},
-    {"title": "Đạp xe / đi bộ", "desc": "Chụp ảnh hành trình đạp xe hoặc đi bộ thay vì xe máy", "icon": "bike"},
-    {"title": "Tiết kiệm nước", "desc": "Chụp ảnh hành động tiết kiệm nước (khóa vòi, hứng nước...)", "icon": "water-outline"},
-    {"title": "Trồng cây xanh", "desc": "Chụp ảnh cây xanh bạn vừa trồng hoặc chăm sóc", "icon": "sprout"},
-    {"title": "Mang theo bình nước cá nhân", "desc": "Chụp ảnh bình nước cá nhân thay vì chai nhựa dùng 1 lần", "icon": "bottle-soda-classic"},
-    {"title": "Tái chế đồ cũ", "desc": "Chụp ảnh một món đồ bạn đã tái chế/tái sử dụng", "icon": "recycle-variant"},
-    {"title": "Ăn chay 1 bữa", "desc": "Chụp ảnh bữa ăn chay/giảm thịt trong ngày", "icon": "food-apple"},
-    {"title": "Dọn rác nơi công cộng", "desc": "Chụp ảnh khu vực bạn vừa dọn dẹp rác", "icon": "broom"},
+    {"title": "Tắt thiết bị điện", "desc": "Chụp ảnh thiết bị điện đã được tắt", "icon": "power-plug-off"},
+    {"title": "Đạp xe / đi bộ", "desc": "Chụp ảnh hành trình đạp xe/đi bộ", "icon": "bike"},
+    {"title": "Tiết kiệm nước", "desc": "Chụp ảnh hành động tiết kiệm nước", "icon": "water-outline"},
+    {"title": "Trồng cây xanh", "desc": "Chụp ảnh cây xanh bạn vừa trồng", "icon": "sprout"},
+    {"title": "Bình nước cá nhân", "desc": "Chụp ảnh bình nước cá nhân của bạn", "icon": "bottle-soda-classic"},
+    {"title": "Ăn chay 1 bữa", "desc": "Chụp ảnh bữa ăn chay/giảm thịt", "icon": "food-apple"},
 ]
 
 
@@ -265,9 +265,6 @@ KV = '''
                 bold: True
         Widget:
 
-# ==========================================
-# CÁC COMPONENT MỚI CHO ROADMAP TIẾN TRÌNH (Bản nâng cấp 10 cột mốc)
-# ==========================================
 <RoadmapNode@BoxLayout>:
     orientation: "vertical"
     size_hint: None, None
@@ -324,20 +321,17 @@ KV = '''
     pos_hint: {"center_y": .73}
     progress_val: 0.0
     canvas.before:
-        # Đường nền màu xám
         Color:
             rgba: (0.6, 0.6, 0.6, 0.3)
         Rectangle:
             pos: self.pos
             size: self.size
-        # Đường màu xanh chạy đè lên theo tỷ lệ tiến trình
         Color:
             rgba: (0.18, 0.49, 0.2, 1)
         Rectangle:
             pos: self.pos
             size: self.width * root.progress_val, self.height
 
-# ==========================================
 <TrophyItem@MDCard>:
     orientation: "vertical"
     unlocked: False
@@ -403,28 +397,38 @@ KV = '''
 
 <SocialFeedItem@MDCard>:
     orientation: "vertical"
-    padding: "10dp"
-    spacing: "5dp"
+    padding: "12dp"
+    spacing: "8dp"
     size_hint_y: None
-    height: "100dp"
+    height: "280dp"  
     radius: [15]
     elevation: 0
     md_bg_color: (0.85, 0.88, 0.84, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.2, 0.2, 1)
     user_name: "Tên"
     action_text: "Hành động"
+    image_source: ""  
     like_count: "0"
+
     BoxLayout:
         orientation: "horizontal"
+        size_hint_y: None
+        height: "30dp"
         MDLabel:
             text: f"[b]{root.user_name}[/b] {root.action_text}"
             markup: True
             font_style: "Caption"
             theme_text_color: "Primary"
+
+    FitImage:
+        source: root.image_source
+        radius: [10,]
+        size_hint_y: 1  
+
     BoxLayout:
         orientation: "horizontal"
         spacing: "10dp"
         size_hint_y: None
-        height: "30dp"
+        height: "40dp"
         MDIconButton:
             icon: "heart-outline"
             theme_text_color: "Custom"
@@ -612,46 +616,56 @@ KV = '''
     radius: [15]
     elevation: 0
     size_hint_y: None
-    height: "70dp"
-    ripple_behavior: True
+    height: "75dp"
+    ripple_behavior: True if not self.completed else False
+    
     task_index: 0
     icon: "leaf"
     title: "Task"
     desc: "Desc"
     completed: False
-    md_bg_color: (0.85, 0.92, 0.85, 1) if root.completed else ((0.85, 0.88, 0.84, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.2, 0.2, 1))
-    on_release: app.open_task_upload(root.task_index) if not root.completed else None
-    MDIcon:
-        icon: ("check-circle" if root.completed else root.icon)
-        theme_text_color: "Custom"
-        text_color: (0.2, 0.65, 0.2, 1) if root.completed else (0.25, 0.45, 0.25, 1)
+
+    md_bg_color: (0.85, 0.95, 0.85, 1) if self.completed else ((0.85, 0.88, 0.84, 1) if app.theme_cls.theme_style == "Light" else (0.2, 0.2, 0.2, 1))
+    on_release: app.open_task_upload(self.task_index) if not self.completed else None
+
+    AnchorLayout:
         size_hint_x: None
-        width: "32dp"
-        font_size: "26sp"
-        pos_hint: {"center_y": .5}
+        width: "55dp"
+        MDIcon:
+            icon: root.icon
+            opacity: 1 if not root.completed else 0
+            theme_text_color: "Custom"
+            text_color: (0.25, 0.45, 0.25, 1)
+            font_size: "28sp"
+        FitImage:
+            source: app.daily_tasks[root.task_index].get("s3_url", "") if root.completed and len(app.daily_tasks) > root.task_index else ""
+            opacity: 1 if root.completed else 0
+            radius: [12,] 
+
     BoxLayout:
         orientation: "vertical"
         spacing: "2dp"
+        padding: ["5dp", 0, 0, 0]
         MDLabel:
             text: root.title
             bold: True
             font_style: "Subtitle2"
             theme_text_color: "Primary"
         MDLabel:
-            text: ("Đã hoàn thành" if root.completed else root.desc)
+            text: "Hoàn thành rực rỡ! ✨" if root.completed else root.desc
             font_style: "Caption"
             font_size: "10sp"
             theme_text_color: "Hint" if not root.completed else "Custom"
-            text_color: 0.2, 0.6, 0.2, 1
+            text_color: (0.2, 0.6, 0.2, 1)
+
     MDIcon:
         icon: "chevron-right" if not root.completed else "lock-check"
         theme_text_color: "Custom"
-        text_color: 0.6, 0.6, 0.6, 1
+        text_color: (0.6, 0.6, 0.6, 1) if not root.completed else (0.2, 0.6, 0.2, 1)
         size_hint_x: None
         width: "20dp"
         pos_hint: {"center_y": .5}
 
-# =========================================================================
 ScreenManager:
     id: main_screen_manager
 
@@ -731,7 +745,6 @@ ScreenManager:
                     BoxLayout:
                         orientation: "vertical"
 
-                        # -- TOP APP BAR (MOBILE STYLE) --
                         MDTopAppBar:
                             id: top_app_bar
                             title: "Dashboard"
@@ -740,7 +753,6 @@ ScreenManager:
                             md_bg_color: 0.18, 0.49, 0.2, 1
                             left_action_items: [["menu", lambda x: nav_drawer.set_state("open")]]
 
-                        # -- NỘI DUNG CHÍNH --
                         ScreenManager:
                             id: sm
 
@@ -789,14 +801,14 @@ ScreenManager:
                                                     id: donut_chart
                                                     size_hint: None, None
                                                     size: "100dp", "100dp"
-                                                    value: 84
+                                                    value: app.current_eco_score
                                                 BoxLayout:
                                                     orientation: "vertical"
                                                     size_hint: None, None
                                                     size: "60dp", "60dp"
                                                     MDLabel:
                                                         id: eco_score_label
-                                                        text: "84"
+                                                        text: str(int(app.current_eco_score))
                                                         font_style: "H5"
                                                         bold: True
                                                         halign: "center"
@@ -869,7 +881,6 @@ ScreenManager:
                                                         halign: "center"
                                                         theme_text_color: "Hint"
 
-                                        # ---- DAILY TASKS (random 3 task / ngày) & NÚT NHẬN THƯỞNG ----
                                         MDCard:
                                             radius: [15]
                                             size_hint_y: None
@@ -900,7 +911,6 @@ ScreenManager:
                                                 size_hint_y: None
                                                 height: self.minimum_height
                                             
-                                            # NÚT NHẬN THƯỞNG 200 XP (Ẩn đi theo mặc định)
                                             MDFillRoundFlatButton:
                                                 id: claim_bonus_btn
                                                 text: "🎉 NHẬN 200 XP THƯỞNG"
@@ -913,7 +923,6 @@ ScreenManager:
                                                 height: "0dp"
                                                 on_release: app.claim_daily_bonus()
 
-                                        # Biểu đồ dọc trên Mobile
                                         BoxLayout:
                                             orientation: "vertical"
                                             size_hint_y: None
@@ -1149,7 +1158,6 @@ ScreenManager:
                                                     font_style: "Caption"
                                                     font_size: "10sp"
 
-                                        # -- ROADMAP HIỂN THỊ TRỰC TIẾP --
                                         MDCard:
                                             orientation: "vertical"
                                             padding: "15dp"
@@ -1327,6 +1335,7 @@ ScreenManager:
                                                 height: "20dp"
                                             ScrollView:
                                                 BoxLayout:
+                                                    id: social_feed_container
                                                     orientation: "vertical"
                                                     spacing: "10dp"
                                                     size_hint_y: None
@@ -1335,19 +1344,13 @@ ScreenManager:
                                                     SocialFeedItem:
                                                         user_name: "Bảo Minh"
                                                         action_text: "đạp xe 5km đi làm."
+                                                        image_source: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500"
                                                         like_count: "12"
                                                     SocialFeedItem:
                                                         user_name: "Hải Đăng"
                                                         action_text: "phân loại 2kg rác."
+                                                        image_source: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=500"
                                                         like_count: "5"
-                                                    SocialFeedItem:
-                                                        user_name: "Ngọc Anh"
-                                                        action_text: "trồng 3 cây xanh."
-                                                        like_count: "15"
-                                                    SocialFeedItem:
-                                                        user_name: "Hoàng Tú"
-                                                        action_text: "tái chế vỏ chai."
-                                                        like_count: "8"
 
                             # === 5. TEAM & GROUPS ===
                             Screen:
@@ -1802,7 +1805,7 @@ ScreenManager:
                                     width: "20dp"
                                 MDLabel:
                                     id: sidebar_points_label
-                                    text: "2,840 XP"
+                                    text: f"{app.user_points} XP"
                                     bold: True
                                     font_style: "Caption"
                                     theme_text_color: "Primary"
@@ -1844,6 +1847,9 @@ ScreenManager:
 '''
 
 
+# ==========================================
+# KHỞI TẠO APP
+# ==========================================
 class EcoTrackerApp(MDApp):
 
     # -- THÔNG TIN AWS --
@@ -1854,19 +1860,18 @@ class EcoTrackerApp(MDApp):
     # -- THUỘC TÍNH ĐỘNG --
     user_points = NumericProperty(2840)
     user_streak = NumericProperty(12)
-    bonus_claimed = BooleanProperty(False) # Track nút nhận 200XP
+    current_eco_score = NumericProperty(15)
+    bonus_claimed = BooleanProperty(False)
 
     uploaded_hashes = []
     current_hash = ""
-
-    current_eco_score = 84
     current_eco_today = 8
 
     # --- Daily tasks state ---
-    daily_tasks = []          # list of dicts: {title, desc, icon, completed}
-    current_task_index = None  # index of task đang được upload, None = upload thường
+    daily_tasks = []
+    current_task_index = None
 
-    # ĐỊNH NGHĨA CÁC MỐC ĐIỂM VÀ TÊN HUY HIỆU (Đã đồng bộ)
+    # ĐỊNH NGHĨA CÁC MỐC ĐIỂM VÀ TÊN HUY HIỆU
     trophy_thresholds = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 7500, 10000]
     trophy_icons = ["seed", "water", "leaf", "fire", "bike", "recycle", "earth", "star", "tree", "crown"]
     trophy_names = ["Seedling", "Water Guardian", "Carbon Cutter", "Streak Master", "Green Commuter", "Zero Waste", "Earth Hero", "Star Eco", "Tree Planter", "Eco Crown"]
@@ -1899,163 +1904,115 @@ class EcoTrackerApp(MDApp):
         self.check_eco_path_milestones()
         self.generate_daily_tasks()
 
-    # =========================================================
-    # HÀM VẼ TIẾN TRÌNH LEVEL ROADMAP DỌC/NGANG (Tự động co giãn)
-    # =========================================================
     def update_roadmap_ui(self):
         try:
             timeline = self.root.ids.roadmap_timeline
-        except Exception:
-            return
+            timeline.clear_widgets()
             
-        timeline.clear_widgets()
-        
-        # Tạo thêm 1 mốc khởi đầu "Beginner" tương ứng với 0 XP (luôn mở khóa)
-        milestones_thresholds = [0] + self.trophy_thresholds
-        milestones_names = ["Beginner"] + self.trophy_names
-        milestones_icons = ["account-outline"] + self.trophy_icons
-        
-        num_milestones = len(milestones_thresholds)
-        
-        for i in range(num_milestones):
-            name = milestones_names[i]
-            threshold = milestones_thresholds[i]
-            icon = milestones_icons[i]
+            milestones_thresholds = [0] + self.trophy_thresholds
+            milestones_names = ["Beginner"] + self.trophy_names
+            milestones_icons = ["account-outline"] + self.trophy_icons
             
-            # Kiểm tra xem user hiện tại đã mở khóa mốc này chưa
-            is_unlocked = self.user_points >= threshold
+            num_milestones = len(milestones_thresholds)
             
-            # Thêm Node mốc tiến trình
-            node = Builder.load_string(f'''
+            for i in range(num_milestones):
+                name = milestones_names[i]
+                threshold = milestones_thresholds[i]
+                icon = milestones_icons[i]
+                is_unlocked = self.user_points >= threshold
+                
+                node = Builder.load_string(f'''
 RoadmapNode:
     node_name: "{name}"
     node_points: "{threshold}"
     node_icon: "{icon}"
     is_unlocked: {is_unlocked}
 ''')
-            timeline.add_widget(node)
-            
-            # Nếu chưa phải mốc cuối cùng, thêm đường nối giữa 2 Node
-            if i < num_milestones - 1:
-                curr_thresh = milestones_thresholds[i]
-                next_thresh = milestones_thresholds[i + 1]
+                timeline.add_widget(node)
                 
-                # Tính toán tỷ lệ phần trăm lấp đầy thanh nối theo điểm số thực tế
-                if self.user_points >= next_thresh:
-                    progress_val = 1.0
-                elif self.user_points < curr_thresh:
-                    progress_val = 0.0
-                else:
-                    # Tính tỷ lệ nằm giữa 2 mốc điểm
-                    progress_val = (self.user_points - curr_thresh) / (next_thresh - curr_thresh)
-                
-                connector = Builder.load_string(f'''
+                if i < num_milestones - 1:
+                    curr_thresh = milestones_thresholds[i]
+                    next_thresh = milestones_thresholds[i + 1]
+                    
+                    if self.user_points >= next_thresh:
+                        progress_val = 1.0
+                    elif self.user_points < curr_thresh:
+                        progress_val = 0.0
+                    else:
+                        progress_val = (self.user_points - curr_thresh) / (next_thresh - curr_thresh)
+                    
+                    connector = Builder.load_string(f'''
 TimelineConnector:
     progress_val: {progress_val}
 ''')
-                timeline.add_widget(connector)
+                    timeline.add_widget(connector)
+        except Exception as e:
+            print("Lỗi Roadmap:", e)
 
-    # =========================================================
-    # DAILY TASKS & BONUS
-    # =========================================================
     def generate_daily_tasks(self):
-        """Lấy random 3 task từ danh sách tổng cho ngày hôm nay."""
-        self.bonus_claimed = False # Reset trạng thái nhận thưởng khi có task mới
-        picked = random.sample(DAILY_TASKS_POOL, k=min(3, len(DAILY_TASKS_POOL)))
-        self.daily_tasks = []
-        for t in picked:
-            self.daily_tasks.append({
-                "title": t["title"],
-                "desc": t["desc"],
-                "icon": t["icon"],
-                "completed": False,
-            })
+        self.bonus_claimed = False
+        picked = random.sample(DAILY_TASKS_POOL, k=3)
+        self.daily_tasks = [{"title": t["title"], "desc": t["desc"], "icon": t["icon"], "completed": False} for t in picked]
         self.update_daily_tasks_ui()
 
     def update_daily_tasks_ui(self):
         try:
             box = self.root.ids.daily_tasks_box
-        except Exception:
-            return
+            box.clear_widgets()
+            done_count = 0
             
-        box.clear_widgets()
-        done_count = 0
-        
-        for idx, task in enumerate(self.daily_tasks):
-            if task["completed"]:
-                done_count += 1
-            
-            # Tạo widget cho từng nhiệm vụ (Khóa nút nếu đã completed)
-            item = Builder.load_string(f'''
+            for idx, task in enumerate(self.daily_tasks):
+                if task["completed"]:
+                    done_count += 1
+                
+                item = Builder.load_string(f'''
 DailyTaskItem:
     task_index: {idx}
     icon: "{task['icon']}"
     title: "{task['title']}"
     desc: "{task['desc']}"
     completed: {task['completed']}
-    on_release: app.open_task_upload({idx}) if not {task['completed']} else None
 ''')
-            box.add_widget(item)
+                box.add_widget(item)
             
-        # XỬ LÝ THANH TIẾN ĐỘ VÀ NÚT NHẬN THƯỞNG 200XP
-        try:
             total_tasks = len(self.daily_tasks)
             self.root.ids.daily_tasks_progress_label.text = f"{done_count}/{total_tasks} hoàn thành"
+            self.current_eco_score = 15 + (done_count * 28.3)
             
             btn = self.root.ids.claim_bonus_btn
             if done_count == total_tasks and not self.bonus_claimed:
-                # Đủ 3/3 và chưa nhận -> HIỆN NÚT CAM
                 btn.opacity = 1
                 btn.disabled = False
                 btn.height = "40dp"
                 btn.text = "🎉 NHẬN 200 XP THƯỞNG"
                 btn.md_bg_color = (0.9, 0.5, 0.1, 1)
             elif done_count == total_tasks and self.bonus_claimed:
-                # Đủ 3/3 và đã nhận -> ĐỔI MÀU XANH, KHÓA NÚT
                 btn.opacity = 1
                 btn.disabled = True
                 btn.height = "40dp"
                 btn.text = "ĐÃ NHẬN THƯỞNG"
                 btn.md_bg_color = (0.4, 0.6, 0.4, 1)
             else:
-                # Chưa đủ 3/3 -> ẨN NÚT
                 btn.opacity = 0
                 btn.disabled = True
                 btn.height = "0dp"
                 
-        except Exception:
-            pass
+        except Exception as e:
+            print("Lỗi update_daily_tasks_ui:", e)
 
     def claim_daily_bonus(self):
-        """Hàm xử lý khi người dùng bấm nút nhận 200 XP thưởng."""
         if not self.bonus_claimed:
-            # 1. Cộng điểm
             self.user_points += 200
             self.bonus_claimed = True
-            
-            # 2. Cập nhật giao diện
             self.update_daily_tasks_ui()
             self.update_trophy_case()
             self.update_roadmap_ui()
             self.check_eco_path_milestones()
-            
-            # 3. (Tùy chọn) Gửi số điểm mới lên AWS để lưu
-            try:
-                payload = {
-                    "username": self.root.ids.login_user.text,
-                    "points": self.user_points
-                }
-                # requests.post(f"{self.SERVER_URL}/update_points", json=payload, timeout=5)
-                print("Đã cộng 200XP thưởng vào tổng điểm!")
-            except:
-                pass
 
     def open_task_upload(self, task_index):
-        if task_index is None or task_index >= len(self.daily_tasks):
-            return
+        if task_index is None or task_index >= len(self.daily_tasks): return
         task = self.daily_tasks[task_index]
-        if task["completed"]:
-            return
+        if task["completed"]: return
 
         self.current_task_index = task_index
         self.clear_current_image()
@@ -2064,21 +2021,18 @@ DailyTaskItem:
             self.root.ids.task_title_label.text = f"Nhiệm vụ: {task['title']}"
             self.root.ids.task_title_label.opacity = 1
             self.root.ids.task_title_label.height = "30dp"
-            self.root.ids.status_label.text = "Chụp/tải ảnh để hoàn thành nhiệm vụ này"
-        except Exception:
-            pass
+            self.root.ids.status_label.text = "Chụp/tải ảnh để hoàn thành"
+        except: pass
 
         self.switch_tab("tab_ghi_nhan", None, "Upload Photo")
 
-    # =========================================================
     def update_trophy_case(self):
-        self.root.ids.trophy_grid.clear_widgets()
-        unlocked_count = 0
-        for i in range(10):
-            is_unlocked = self.user_points >= self.trophy_thresholds[i]
-            if is_unlocked:
-                unlocked_count += 1
-            item = Builder.load_string(f'''
+        try:
+            grid = self.root.ids.trophy_grid
+            grid.clear_widgets()
+            for i in range(10):
+                is_unlocked = self.user_points >= self.trophy_thresholds[i]
+                item = Builder.load_string(f'''
 TrophyItem:
     icon: "{self.trophy_icons[i]}"
     title: "{self.trophy_names[i]}"
@@ -2087,9 +2041,12 @@ TrophyItem:
     max_p: {self.trophy_thresholds[i]}
     unlocked: {is_unlocked}
 ''')
-            self.root.ids.trophy_grid.add_widget(item)
-        self.root.ids.trophy_count_label.text = f"{unlocked_count} of 10 trophies unlocked"
+                grid.add_widget(item)
+        except: pass
 
+    # =========================================================
+    # CÁC HÀM TIỆN ÍCH UI
+    # =========================================================
     def show_trophy_details(self, title, icon, desc, unlocked, current_p, max_p):
         content = BoxLayout(orientation='vertical', spacing='10dp', padding='10dp')
         color_rgba = (0.3, 0.7, 0.3, 1) if unlocked else (0.6, 0.6, 0.6, 0.5)
@@ -2100,11 +2057,9 @@ TrophyItem:
         )
         content.add_widget(icon_widget)
         content.add_widget(MDLabel(text=title, font_style='Subtitle1', bold=True, halign='center', size_hint_y=None, height='30dp'))
-
         status_text = "[color=#4CAF50]Đã mở khóa[/color]" if unlocked else "[color=#F44336]Chưa mở khóa[/color]"
         content.add_widget(MDLabel(text=status_text, markup=True, halign='center', font_style='Caption', size_hint_y=None, height='20dp'))
         content.add_widget(MDLabel(text=desc, halign='center', font_style="Caption", theme_text_color='Secondary', size_hint_y=None, height='50dp'))
-
         if not unlocked:
             prog_box = BoxLayout(orientation='vertical', size_hint_y=None, height='50dp')
             prog_label = MDLabel(text=f"{current_p}/{max_p} XP", font_style='Caption', halign='center')
@@ -2115,10 +2070,8 @@ TrophyItem:
             content.add_widget(prog_box)
         else:
             content.add_widget(Widget(size_hint_y=None, height='50dp'))
-
         btn = MDFillRoundFlatButton(text="ĐÓNG", pos_hint={'center_x': 0.5}, md_bg_color=(0.4, 0.6, 0.4, 1))
         content.add_widget(btn)
-
         self.trophy_popup = Popup(title="Chi tiết", content=content, size_hint=(0.8, 0.6))
         btn.bind(on_release=lambda x: self.trophy_popup.dismiss())
         self.trophy_popup.open()
@@ -2134,8 +2087,7 @@ TrophyItem:
             self.root.ids.gami_xp_text.text = f"{self.user_points}/{next_level_xp} XP"
             self.root.ids.gami_main_progress.value = progress
             self.root.ids.gami_streak_text.text = f"{self.user_streak} day"
-        except Exception:
-            pass
+        except: pass
 
     def open_edit_profile_popup(self):
         content = BoxLayout(orientation='vertical', spacing='10dp', padding='10dp')
@@ -2144,7 +2096,6 @@ TrophyItem:
         self.edit_loc_input = MDTextField(text=current_loc, hint_text="Thành phố", mode="rectangle")
         content.add_widget(self.edit_name_input)
         content.add_widget(self.edit_loc_input)
-
         save_btn = MDFillRoundFlatButton(text="LƯU", md_bg_color=(0.4, 0.6, 0.4, 1), pos_hint={'center_x': 0.5}, size_hint_x=1)
         save_btn.bind(on_release=self.save_profile)
         content.add_widget(save_btn)
@@ -2160,33 +2111,11 @@ TrophyItem:
         self.profile_popup.dismiss()
 
     def open_update_goals_popup(self):
-        content = BoxLayout(orientation='vertical', spacing='10dp', padding='10dp')
-        content.add_widget(MDTextField(text="3", hint_text="Carbon (kg/ngày)", mode="rectangle"))
-        content.add_widget(MDTextField(text="300", hint_text="Habits", mode="rectangle"))
-        content.add_widget(MDTextField(text="90", hint_text="Eco Score", mode="rectangle"))
-        save_btn = MDFillRoundFlatButton(text="CẬP NHẬT", md_bg_color=(0.4, 0.6, 0.4, 1), pos_hint={'center_x': 0.5}, size_hint_x=1)
-        save_btn.bind(on_release=lambda x: self.goals_popup.dismiss())
-        content.add_widget(save_btn)
-        self.goals_popup = Popup(title="Mục tiêu", content=content, size_hint=(0.8, 0.6))
-        self.goals_popup.open()
+        pass 
 
     def switch_tab(self, screen_name, btn_instance, title="Dashboard"):
         self.root.ids.sm.current = screen_name
         self.root.ids.top_app_bar.title = title
-
-        nav_buttons = [
-            self.root.ids.nav_dashboard,
-            self.root.ids.nav_gamification,
-            self.root.ids.nav_social,
-            self.root.ids.nav_groups,
-            self.root.ids.nav_stats
-        ]
-        for btn in nav_buttons:
-            if btn:
-                btn.md_bg_color = [0, 0, 0, 0]
-        if btn_instance:
-            btn_instance.md_bg_color = [0.7, 0.78, 0.7, 0.6]
-
         if "nav_drawer" in self.root.ids:
             self.root.ids.nav_drawer.set_state("close")
 
@@ -2208,41 +2137,34 @@ TrophyItem:
     def process_login(self):
         user = self.root.ids.login_user.text
         if user.strip() != "":
-            try:
-                response = requests.get(f"{self.SERVER_URL}/get_user/{user}", timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    self.user_points = data.get('points', 0)
-                    self.user_streak = data.get('streak', 0)
-                    
-                    cloud_tasks = data.get('daily_tasks', [])
-                    if cloud_tasks:
-                        self.daily_tasks = cloud_tasks
-                    print("Đã đồng bộ dữ liệu từ Cloud thành công!")
-                else:
-                    self.user_points = 0
-                    self.user_streak = 0
-                    self.generate_daily_tasks() 
-
-            except Exception as e:
-                print(f"Lỗi kết nối AWS: {e}")
-                # Giữ nguyên điểm cũ nếu mất mạng
-
             self.root.ids.username_display.text = user
             self.root.ids.profile_name_label.text = user
             self.root.current = "main_app_screen"
-            
-            self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
-            
-            self.update_daily_tasks_ui()
-            self.update_trophy_case()
-            self.update_roadmap_ui()
-            self.check_eco_path_milestones()
+            self.switch_tab("tab_dashboard", None, "Dashboard")
+            self.on_start()
 
     def process_logout(self):
         self.root.current = "login_screen"
         self.clear_current_image()
 
+    def add_to_social_feed(self, user, task_name, s3_url):
+        try:
+            feed_container = self.root.ids.social_feed_container
+            new_post_kv = f'''
+SocialFeedItem:
+    user_name: "{user}"
+    action_text: "vừa hoàn thành: {task_name}"
+    image_source: "{s3_url}"
+    like_count: "0"
+'''
+            new_post_widget = Builder.load_string(new_post_kv)
+            feed_container.add_widget(new_post_widget, index=len(feed_container.children))
+        except Exception as e:
+            print(f"Lỗi hiển thị Feed: {e}")
+
+    # =========================================================
+    # CHỨC NĂNG CHỤP ẢNH VÀ UPLOAD ĐÃ SỬA LỖI URL KÝ TỰ ĐẶC BIỆT
+    # =========================================================
     def open_camera_popup(self):
         main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
         header_layout = BoxLayout(size_hint_y=None, height="40dp")
@@ -2361,26 +2283,26 @@ TrophyItem:
             pass
 
     def confirm_upload(self):
-        # 1. Kiểm tra xem có ảnh chưa
         if not self.current_photo_path:
             self.root.ids.status_label.text = "Bạn chưa chụp/chọn ảnh!"
             return
 
         # =======================================================
-        # 2. ĐIỀN 4 THÔNG TIN CỦA BẠN VÀO ĐÂY (NẰM TRONG DẤU NHÁY)
+        # BẠN ĐIỀN THÔNG TIN AWS CỦA BẠN VÀO ĐÂY
         # =======================================================
         AWS_ACCESS_KEY = 'AKIAYGKJ4KNWNDHC3COC'
         AWS_SECRET_KEY = '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'
-        BUCKET_NAME = 'ecotracker-app' # Đổi thành tên Bucket bạn vừa tạo
-        REGION = 'ap-southeast-1'                # Đổi thành Region của bạn (thường là us-east-2)
+        BUCKET_NAME = 'ecotracker-app'
+        REGION = 'ap-southeast-1'
         # =======================================================
 
-        # Lấy tên user và id nhiệm vụ
         username = self.root.ids.login_user.text
+        
+        # SỬA LỖI: Thay thế toàn bộ khoảng trắng trong username thành dấu gạch dưới "_"
+        safe_username = username.replace(" ", "_")
         task_id = str(self.current_task_index)
 
         try:
-            # 3. KẾT NỐI VỚI KHO S3
             s3_client = boto3.client(
                 's3',
                 aws_access_key_id=AWS_ACCESS_KEY,
@@ -2388,36 +2310,39 @@ TrophyItem:
                 region_name=REGION
             )
 
-            # 4. TẠO TÊN FILE TRÊN S3 (Ví dụ: tasks/AriaChen_task1.png)
-            s3_file_name = f"tasks/{username}_task{task_id}.png"
+            # Tên file S3 không còn chứa khoảng trắng
+            s3_file_name = f"tasks/{safe_username}_task{task_id}.png"
 
-            # 5. ĐẨY ẢNH LÊN S3
             self.root.ids.status_label.text = "Đang đẩy ảnh lên S3..."
             print("Đang xử lý đẩy ảnh lên đám mây...")
             
             s3_client.upload_file(
-                self.current_photo_path, # Ảnh trên máy Mac
-                BUCKET_NAME,             # Tên kho chứa
-                s3_file_name,            # Tên file mới trên kho
+                self.current_photo_path,
+                BUCKET_NAME,
+                s3_file_name,
                 ExtraArgs={'ACL': 'public-read', 'ContentType': 'image/png'} 
-                # ^ Lệnh này giúp ảnh có thể xem được bằng link web
             )
 
-            # 6. TẠO RA ĐƯỜNG LINK ẢNH
+            # Link S3 chuẩn không bị lỗi điều khiển kí tự URL
             s3_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_file_name}"
             print(f"==========================================")
             print(f"🎉 THÀNH CÔNG! Đã đẩy lên S3.")
             print(f"🔗 Link ảnh của bạn: {s3_url}")
             print(f"==========================================")
 
-            # 7. CẬP NHẬT GIAO DIỆN APP (Tích xanh, cộng điểm)
             if self.current_task_index is not None:
                 self.daily_tasks[self.current_task_index]["completed"] = True
+                self.daily_tasks[self.current_task_index]["s3_url"] = s3_url
+                task_title = self.daily_tasks[self.current_task_index]["title"]
+                
                 self.user_points += 100
                 self.update_daily_tasks_ui()
                 self.update_trophy_case()
                 self.update_roadmap_ui()
                 self.check_eco_path_milestones()
+                
+                # Cập nhật lên Bảng tin Feed
+                self.add_to_social_feed(username, task_title, s3_url)
 
             self.root.ids.status_label.text = "Đã lưu ảnh thẳng lên AWS S3!"
 
@@ -2430,7 +2355,6 @@ TrophyItem:
             print(f"Lỗi S3: {e}")
             self.root.ids.status_label.text = "Lỗi AWS: Xem chi tiết ở Terminal"
 
-        # 8. Chuyển màu chữ báo cáo và quay về màn hình chính
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
         self.root.ids.btn_confirm.disabled = True
@@ -2438,7 +2362,7 @@ TrophyItem:
 
     def go_to_dashboard(self):
         self.current_task_index = None
-        self.switch_tab("tab_dashboard", self.root.ids.nav_dashboard, "Dashboard")
+        self.switch_tab("tab_dashboard", None, "Dashboard")
         self.clear_current_image()
 
 if __name__ == "__main__":
