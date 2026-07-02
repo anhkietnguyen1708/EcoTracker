@@ -49,18 +49,20 @@ except ImportError:
 
 
 # ==========================================
-# CÁC WIDGET VẼ BIỂU ĐỒ & CUSTOM WIDGETS
+# CÁC WIDGET VẼ BIỂU ĐỒ & CUSTOM WIDGETS (ĐÃ SỬA LỖI LỆCH TÂM)
 # ==========================================
 class DonutChart(Widget):
     value = NumericProperty(84)
 
-    def on_size(self, *args):
-        self._draw_chart()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Ràng buộc sự kiện vẽ lại khi thay đổi cả kích thước (size) lẫn vị trí (pos)
+        self.bind(pos=self._draw_chart, size=self._draw_chart)
 
     def on_value(self, *args):
         self._draw_chart()
 
-    def _draw_chart(self):
+    def _draw_chart(self, *args):
         self.canvas.clear()
         if self.width == 0 or self.height == 0:
             return
@@ -74,7 +76,11 @@ class DonutChart(Widget):
 
 
 class HabitDonutChart(Widget):
-    def on_size(self, *args):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self._draw_chart, size=self._draw_chart)
+
+    def _draw_chart(self, *args):
         self.canvas.clear()
         if self.width == 0 or self.height == 0:
             return
@@ -91,7 +97,11 @@ class HabitDonutChart(Widget):
 class SmoothLineChart(Widget):
     data = ListProperty([60, 65, 55, 75, 80, 78, 85, 84, 90, 88])
 
-    def on_size(self, *args):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self._draw_chart, size=self._draw_chart)
+
+    def _draw_chart(self, *args):
         self.canvas.clear()
         if not self.data or self.width == 0:
             return
@@ -109,7 +119,11 @@ class LineChart(Widget):
     data = ListProperty([4.2, 3.8, 5.1, 3.2, 2.9, 2.1, 3.4])
     max_val = NumericProperty(8)
 
-    def on_size(self, *args):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self._draw_chart, size=self._draw_chart)
+
+    def _draw_chart(self, *args):
         self.canvas.clear()
         if not self.data or self.width == 0:
             return
@@ -131,7 +145,11 @@ class BarChart(Widget):
     data = ListProperty([60, 70, 68, 85])
     max_val = NumericProperty(100)
 
-    def on_size(self, *args):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self._draw_chart, size=self._draw_chart)
+
+    def _draw_chart(self, *args):
         self.canvas.clear()
         if not self.data or self.width == 0:
             return
@@ -756,6 +774,7 @@ ScreenManager:
                         ScreenManager:
                             id: sm
 
+                            # === 1. DASHBOARD CHÍNH (Đã đẩy vòng tròn lên cao và sửa hoàn toàn lỗi lệch tâm) ===
                             Screen:
                                 name: "tab_dashboard"
                                 ScrollView:
@@ -769,7 +788,7 @@ ScreenManager:
                                         MDCard:
                                             radius: [15]
                                             size_hint_y: None
-                                            height: "250dp"   
+                                            height: "270dp"   
                                             padding: "15dp"
                                             spacing: "10dp"   
                                             md_bg_color: (0.89, 0.92, 0.88, 1) if app.theme_cls.theme_style == "Light" else (0.15, 0.15, 0.15, 1)
@@ -781,7 +800,7 @@ ScreenManager:
                                                 size_hint_y: None
                                                 height: "30dp"
                                                 MDLabel:
-                                                    text: "Daily Eco Score"
+                                                    text: "Total EXP"   
                                                     font_style: "Subtitle2"
                                                     bold: True
                                                     theme_text_color: "Primary"
@@ -798,7 +817,7 @@ ScreenManager:
                                                 anchor_x: "center"
                                                 anchor_y: "center"
                                                 size_hint_y: None
-                                                height: "110dp"    
+                                                height: "120dp"    
                                                 DonutChart:
                                                     id: donut_chart
                                                     size_hint: None, None
@@ -807,24 +826,29 @@ ScreenManager:
                                                 BoxLayout:
                                                     orientation: "vertical"
                                                     size_hint: None, None
-                                                    size: "70dp", "55dp"   
-                                                    spacing: "-3dp"        
+                                                    size: "80dp", "80dp"   
+                                                    spacing: "2dp"        
                                                     MDLabel:
                                                         id: eco_score_label
-                                                        text: str(int(app.current_eco_score))
-                                                        font_style: "H4"
+                                                        text: str(int(app.user_points)) 
+                                                        font_size: "26sp"  
                                                         bold: True
                                                         halign: "center"
                                                         valign: "bottom"
                                                         theme_text_color: "Custom"
                                                         text_color: (0, 0, 0, 1) if app.theme_cls.theme_style == "Light" else (1, 1, 1, 1)
                                                     MDLabel:
-                                                        text: "Score"
+                                                        text: "Total XP"   
                                                         font_style: "Caption"
                                                         font_size: "10sp"
                                                         halign: "center"
                                                         valign: "top"
                                                         theme_text_color: "Hint"
+
+                                            # --- ĐỆM 15DP ĐỂ ĐẨY VÒNG TRÒN LÊN CAO ---
+                                            Widget:
+                                                size_hint_y: None
+                                                height: "15dp"     
 
                                             BoxLayout:
                                                 orientation: "horizontal"
@@ -1852,6 +1876,9 @@ ScreenManager:
 '''
 
 
+# ==========================================
+# KHỞI TẠO APP
+# ==========================================
 class EcoTrackerApp(MDApp):
 
     # -- THÔNG TIN AWS --
@@ -2002,7 +2029,6 @@ DailyTaskItem:
         except Exception as e:
             print("Lỗi update_daily_tasks_ui:", e)
 
-    # --- NHIỆM VỤ CHÍNH: CHỈ CỘNG 200 XP TẠI ĐÂY ---
     def claim_daily_bonus(self):
         if not self.bonus_claimed:
             self.user_points += 200
@@ -2090,6 +2116,9 @@ TrophyItem:
             self.root.ids.gami_xp_text.text = f"{self.user_points}/{next_level_xp} XP"
             self.root.ids.gami_main_progress.value = progress
             self.root.ids.gami_streak_text.text = f"{self.user_streak} day"
+            
+            # --- ĐÃ SỬA: CẬP NHẬT TỶ LỆ PHẦN TRĂM VÒNG TRÒN THEO TIẾN TRÌNH LEVEL ---
+            self.root.ids.donut_chart.value = progress
         except: pass
 
     def open_edit_profile_popup(self):
@@ -2335,7 +2364,6 @@ SocialFeedItem:
                 self.daily_tasks[self.current_task_index]["s3_url"] = s3_url
                 task_title = self.daily_tasks[self.current_task_index]["title"]
                 
-                # SỬA LỖI: Không cộng điểm lẻ (+100 XP) cho từng nhiệm vụ nữa
                 self.update_daily_tasks_ui()
                 self.update_trophy_case()
                 self.update_roadmap_ui()
