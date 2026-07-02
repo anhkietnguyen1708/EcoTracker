@@ -8,6 +8,9 @@ import random
 # IMPORT THƯ VIỆN GỌI API AWS
 import requests
 
+import boto3
+from botocore.exceptions import NoCredentialsError
+
 from PIL import Image as PILImage
 from kivy.config import Config
 from kivy.utils import platform
@@ -2358,50 +2361,76 @@ TrophyItem:
             pass
 
     def confirm_upload(self):
+        # 1. Kiểm tra xem có ảnh chưa
         if not self.current_photo_path:
             self.root.ids.status_label.text = "Bạn chưa chụp/chọn ảnh!"
             return
 
-        # 1. CẬP NHẬT GIAO DIỆN LOCAL NGAY LẬP TỨC
-        if self.current_task_index is not None:
-            self.daily_tasks[self.current_task_index]["completed"] = True
-            self.user_points += 100  # Cộng 100 XP cho mỗi nhiệm vụ thường
-            
-            self.update_daily_tasks_ui()
-            self.update_trophy_case()
-            self.update_roadmap_ui()
-            self.check_eco_path_milestones()
+        # =======================================================
+        # 2. ĐIỀN 4 THÔNG TIN CỦA BẠN VÀO ĐÂY (NẰM TRONG DẤU NHÁY)
+        # =======================================================
+        AWS_ACCESS_KEY = 'AKIAYGKJ4KNWNDHC3COC'
+        AWS_SECRET_KEY = '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'
+        BUCKET_NAME = 'ecotracker-app' # Đổi thành tên Bucket bạn vừa tạo
+        REGION = 'ap-southeast-1'                # Đổi thành Region của bạn (thường là us-east-2)
+        # =======================================================
 
-        # 2. ĐÓNG GÓI VÀ GỬI LÊN AWS S3
+        # Lấy tên user và id nhiệm vụ
         username = self.root.ids.login_user.text
-        task_id = self.current_task_index 
-        API_ENDPOINT = f"{self.SERVER_URL}/upload_task" 
+        task_id = str(self.current_task_index)
 
         try:
-            with open(self.current_photo_path, "rb") as image_file:
-                files = {
-                    'file': (os.path.basename(self.current_photo_path), image_file, 'image/png')
-                }
-                data = {
-                    "username": username,
-                    "task_id": str(task_id)
-                }
+            # 3. KẾT NỐI VỚI KHO S3
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=AWS_ACCESS_KEY,
+                aws_secret_access_key=AWS_SECRET_KEY,
+                region_name=REGION
+            )
 
-                # Set timeout=5s để tránh đơ app nếu mạng lỗi
-                response = requests.post(API_ENDPOINT, data=data, files=files, timeout=5)
+            # 4. TẠO TÊN FILE TRÊN S3 (Ví dụ: tasks/AriaChen_task1.png)
+            s3_file_name = f"tasks/{username}_task{task_id}.png"
 
-                if response.status_code == 200:
-                    ket_qua = response.json()
-                    link_anh_s3 = ket_qua.get("image_url")
-                    print(f"Ảnh đã lên S3 thành công: {link_anh_s3}")
-                    self.root.ids.status_label.text = "Đã đồng bộ ảnh lên S3 Cloud!"
-                else:
-                    self.root.ids.status_label.text = f"Đã lưu Local (AWS Lỗi {response.status_code})"
+            # 5. ĐẨY ẢNH LÊN S3
+            self.root.ids.status_label.text = "Đang đẩy ảnh lên S3..."
+            print("Đang xử lý đẩy ảnh lên đám mây...")
+            
+            s3_client.upload_file(
+                self.current_photo_path, # Ảnh trên máy Mac
+                BUCKET_NAME,             # Tên kho chứa
+                s3_file_name,            # Tên file mới trên kho
+                ExtraArgs={'ACL': 'public-read', 'ContentType': 'image/png'} 
+                # ^ Lệnh này giúp ảnh có thể xem được bằng link web
+            )
 
+            # 6. TẠO RA ĐƯỜNG LINK ẢNH
+            s3_url = f"https://{BUCKET_NAME}.s3.{REGION}.amazonaws.com/{s3_file_name}"
+            print(f"==========================================")
+            print(f"🎉 THÀNH CÔNG! Đã đẩy lên S3.")
+            print(f"🔗 Link ảnh của bạn: {s3_url}")
+            print(f"==========================================")
+
+            # 7. CẬP NHẬT GIAO DIỆN APP (Tích xanh, cộng điểm)
+            if self.current_task_index is not None:
+                self.daily_tasks[self.current_task_index]["completed"] = True
+                self.user_points += 100
+                self.update_daily_tasks_ui()
+                self.update_trophy_case()
+                self.update_roadmap_ui()
+                self.check_eco_path_milestones()
+
+            self.root.ids.status_label.text = "Đã lưu ảnh thẳng lên AWS S3!"
+
+        except FileNotFoundError:
+            self.root.ids.status_label.text = "Lỗi: Không tìm thấy ảnh local."
+        except NoCredentialsError:
+            self.root.ids.status_label.text = "Lỗi: Sai Key bảo mật AWS."
+            print("Vui lòng kiểm tra lại Access Key và Secret Key!")
         except Exception as e:
-            print(f"Lỗi Call API: {e}")
-            self.root.ids.status_label.text = "Đã lưu (Chưa kết nối Cloud)"
+            print(f"Lỗi S3: {e}")
+            self.root.ids.status_label.text = "Lỗi AWS: Xem chi tiết ở Terminal"
 
+        # 8. Chuyển màu chữ báo cáo và quay về màn hình chính
         self.root.ids.status_label.theme_text_color = "Custom"
         self.root.ids.status_label.text_color = (0.15, 0.55, 0.15, 1)
         self.root.ids.btn_confirm.disabled = True
